@@ -26,7 +26,28 @@ if(BUILD_TESTING)
     add_executable(agent_tests tests/test_health.cpp)
     target_link_libraries(agent_tests PRIVATE agent_core)
     add_test(NAME health_smoke COMMAND agent_tests)
+        # Day 3: UniqueFd RAII tests (POSIX)
+    if(UNIX)
+        add_executable(
+            agent_unique_fd_tests
+            tests/test_unique_fd.cpp
+        )
 
+        target_link_libraries(
+            agent_unique_fd_tests
+            PRIVATE agent_core
+        )
+
+        target_compile_options(
+            agent_unique_fd_tests
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+
+        add_test(
+            NAME unique_fd_raii
+            COMMAND agent_unique_fd_tests
+        )
+    endif()
     add_executable(agent_task_tests tests/test_task.cpp)
     target_link_libraries(agent_task_tests PRIVATE agent_core)
     add_test(NAME task_service COMMAND agent_task_tests)
