@@ -5,7 +5,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_library(agent_core STATIC src/health.cpp)
+add_library(agent_core STATIC
+    src/health.cpp
+    src/task.cpp
+)
 target_include_directories(agent_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 if(MSVC)
@@ -18,8 +21,13 @@ add_executable(agent_gateway src/main.cpp)
 target_link_libraries(agent_gateway PRIVATE agent_core)
 
 include(CTest)
+
 if(BUILD_TESTING)
     add_executable(agent_tests tests/test_health.cpp)
     target_link_libraries(agent_tests PRIVATE agent_core)
     add_test(NAME health_smoke COMMAND agent_tests)
+
+    add_executable(agent_task_tests tests/test_task.cpp)
+    target_link_libraries(agent_task_tests PRIVATE agent_core)
+    add_test(NAME task_service COMMAND agent_task_tests)
 endif()
