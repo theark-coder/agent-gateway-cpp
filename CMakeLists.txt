@@ -26,7 +26,7 @@ if(BUILD_TESTING)
     add_executable(agent_tests tests/test_health.cpp)
     target_link_libraries(agent_tests PRIVATE agent_core)
     add_test(NAME health_smoke COMMAND agent_tests)
-        # Day 3: UniqueFd RAII tests (POSIX)
+    # Day 3: UniqueFd RAII tests (POSIX)
     if(UNIX)
         add_executable(
             agent_unique_fd_tests
@@ -48,6 +48,27 @@ if(BUILD_TESTING)
             COMMAND agent_unique_fd_tests
         )
     endif()
+    # Day 5: smart pointer lifetime tests
+    add_executable(
+        agent_smart_ptr_tests
+        tests/test_smart_ptr.cpp
+    )
+
+    if(MSVC)
+        target_compile_options(
+            agent_smart_ptr_tests PRIVATE /W4
+        )
+    else()
+        target_compile_options(
+            agent_smart_ptr_tests
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+    endif()
+
+    add_test(
+        NAME smart_ptr_lifetime
+        COMMAND agent_smart_ptr_tests
+    )
     add_executable(agent_task_tests tests/test_task.cpp)
     target_link_libraries(agent_task_tests PRIVATE agent_core)
     add_test(NAME task_service COMMAND agent_task_tests)
