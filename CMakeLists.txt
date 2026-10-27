@@ -8,6 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(agent_core STATIC
     src/health.cpp
     src/task.cpp
+    src/tool.cpp
+    src/model_client.cpp
 )
 target_include_directories(agent_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
@@ -72,4 +74,30 @@ if(BUILD_TESTING)
     add_executable(agent_task_tests tests/test_task.cpp)
     target_link_libraries(agent_task_tests PRIVATE agent_core)
     add_test(NAME task_service COMMAND agent_task_tests)
+        # Day 6: polymorphic tool and model client tests
+    add_executable(
+        agent_tool_tests
+        tests/test_tool.cpp
+    )
+
+    target_link_libraries(
+        agent_tool_tests
+        PRIVATE agent_core
+    )
+
+    if(MSVC)
+        target_compile_options(
+            agent_tool_tests PRIVATE /W4
+        )
+    else()
+        target_compile_options(
+            agent_tool_tests
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+    endif()
+
+    add_test(
+        NAME tool_polymorphism
+        COMMAND agent_tool_tests
+    )
 endif()
