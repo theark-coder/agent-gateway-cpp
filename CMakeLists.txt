@@ -153,4 +153,30 @@ if(BUILD_TESTING)
         NAME thread_pool
         COMMAND agent_thread_pool_tests
     )
+    # Day 10: BoundedQueue tests
+    add_executable(
+        agent_bounded_queue_tests
+        tests/test_bounded_queue.cpp
+    )
+
+    target_link_libraries(
+        agent_bounded_queue_tests
+        PRIVATE agent_core
+    )
+
+    if(MSVC)
+        target_compile_options(
+            agent_bounded_queue_tests PRIVATE /W4
+        )
+    else()
+        target_compile_options(
+            agent_bounded_queue_tests
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+    endif()
+
+    add_test(
+        NAME bounded_queue
+        COMMAND agent_bounded_queue_tests
+    )
 endif()
