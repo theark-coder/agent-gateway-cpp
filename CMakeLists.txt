@@ -23,11 +23,14 @@ add_executable(agent_gateway src/main.cpp)
 target_link_libraries(agent_gateway PRIVATE agent_core)
 
 include(CTest)
+find_package(Threads REQUIRED)
 
 if(BUILD_TESTING)
+    # Day 1: health smoke test
     add_executable(agent_tests tests/test_health.cpp)
     target_link_libraries(agent_tests PRIVATE agent_core)
     add_test(NAME health_smoke COMMAND agent_tests)
+
     # Day 3: UniqueFd RAII tests (POSIX)
     if(UNIX)
         add_executable(
@@ -50,10 +53,16 @@ if(BUILD_TESTING)
             COMMAND agent_unique_fd_tests
         )
     endif()
+
     # Day 5: smart pointer lifetime tests
     add_executable(
         agent_smart_ptr_tests
         tests/test_smart_ptr.cpp
+    )
+
+    target_link_libraries(
+        agent_smart_ptr_tests
+        PRIVATE agent_core
     )
 
     if(MSVC)
@@ -71,10 +80,24 @@ if(BUILD_TESTING)
         NAME smart_ptr_lifetime
         COMMAND agent_smart_ptr_tests
     )
-    add_executable(agent_task_tests tests/test_task.cpp)
-    target_link_libraries(agent_task_tests PRIVATE agent_core)
-    add_test(NAME task_service COMMAND agent_task_tests)
-        # Day 6: polymorphic tool and model client tests
+
+    # Day 2-9: TaskService tests
+    add_executable(
+        agent_task_tests
+        tests/test_task.cpp
+    )
+
+    target_link_libraries(
+        agent_task_tests
+        PRIVATE agent_core Threads::Threads
+    )
+
+    add_test(
+        NAME task_service
+        COMMAND agent_task_tests
+    )
+
+    # Day 6: polymorphic tool and model client tests
     add_executable(
         agent_tool_tests
         tests/test_tool.cpp

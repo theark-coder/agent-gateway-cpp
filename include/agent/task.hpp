@@ -1,6 +1,6 @@
 
 #pragma once
-
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -30,8 +30,10 @@ public:
     std::optional<Task> find_task(int id) const;
 
 private:
+    mutable std::mutex mutex_;
     std::vector<Task> tasks_;
     int next_id_ = 1;
+
 };
 
 }  // namespace agent
