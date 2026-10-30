@@ -10,6 +10,7 @@ add_library(agent_core STATIC
     src/task.cpp
     src/tool.cpp
     src/model_client.cpp
+    src/thread_pool.cpp
 )
 target_include_directories(agent_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
@@ -24,7 +25,10 @@ target_link_libraries(agent_gateway PRIVATE agent_core)
 
 include(CTest)
 find_package(Threads REQUIRED)
-
+target_link_libraries(
+    agent_core
+    PUBLIC Threads::Threads
+)
 if(BUILD_TESTING)
     # Day 1: health smoke test
     add_executable(agent_tests tests/test_health.cpp)
@@ -122,5 +126,31 @@ if(BUILD_TESTING)
     add_test(
         NAME tool_polymorphism
         COMMAND agent_tool_tests
+    )
+    # Day 10: ThreadPool tests
+    add_executable(
+        agent_thread_pool_tests
+        tests/test_thread_pool.cpp
+    )
+
+    target_link_libraries(
+        agent_thread_pool_tests
+        PRIVATE agent_core
+    )
+
+    if(MSVC)
+        target_compile_options(
+            agent_thread_pool_tests PRIVATE /W4
+        )
+    else()
+        target_compile_options(
+            agent_thread_pool_tests
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+    endif()
+
+    add_test(
+        NAME thread_pool
+        COMMAND agent_thread_pool_tests
     )
 endif()
