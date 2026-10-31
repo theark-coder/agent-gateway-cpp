@@ -179,4 +179,30 @@ if(BUILD_TESTING)
         NAME bounded_queue
         COMMAND agent_bounded_queue_tests
     )
+    # Day 11: ThreadPool integration tests
+    add_executable(
+        agent_thread_pool_day11_tests
+        tests/test_thread_pool_day11.cpp
+    )
+
+    target_link_libraries(
+        agent_thread_pool_day11_tests
+        PRIVATE agent_core Threads::Threads
+    )
+
+    if(MSVC)
+        target_compile_options(
+            agent_thread_pool_day11_tests PRIVATE /W4
+        )
+    else()
+        target_compile_options(
+            agent_thread_pool_day11_tests
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+    endif()
+
+    add_test(
+        NAME thread_pool_day11
+        COMMAND agent_thread_pool_day11_tests
+    )
 endif()

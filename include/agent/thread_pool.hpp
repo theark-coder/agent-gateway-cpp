@@ -1,12 +1,13 @@
 
 #pragma once
 
-#include <condition_variable>
+#include "agent/bounded_queue.hpp"
+
 #include <cstddef>
 #include <functional>
 #include <future>
+#include <memory>
 #include <mutex>
-#include <queue>
 #include <stdexcept>
 #include <thread>
 #include <type_traits>
@@ -17,10 +18,13 @@ namespace agent {
 
 class ThreadPool final {
 public:
-    explicit ThreadPool(std::size_t thread_count);
+    explicit ThreadPool(
+        std::size_t thread_count,
+        std::size_t queue_capacity = 1024
+    );
 
     ~ThreadPool();
-
+    void shutdown();
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool& operator=(const ThreadPool&) = delete;
 
@@ -43,10 +47,14 @@ public:
                 std::move(bound_task)
             );
 
-        std::future<ReturnType> result = task->get_future();
+        auto result = task->get_future();
+
+        std::function<void()> wrapper = [task]() {
+            (*task)();
+        };
 
         {
-            std::lock_guard<std::mutex> lock(mutex_);
+            std::lock_guard<std::mutex> lock(state_mutex_);
 
             if (stopping_) {
                 throw std::runtime_error(
@@ -54,12 +62,12 @@ public:
                 );
             }
 
-            tasks_.emplace([task]() {
-                (*task)();
-            });
+            if (!tasks_.try_push(std::move(wrapper))) {
+                throw std::runtime_error(
+                    "thread pool task queue is full"
+                );
+            }
         }
-
-        cv_.notify_one();
 
         return result;
     }
@@ -69,13 +77,11 @@ private:
 
     std::vector<std::thread> workers_;
 
-    std::queue<std::function<void()>> tasks_;
+    BoundedQueue<std::function<void()>> tasks_;
 
-    std::mutex mutex_;
-
-    std::condition_variable cv_;
-
+    std::mutex state_mutex_;
+    std::mutex shutdown_mutex_;
     bool stopping_ = false;
 };
 
-}  // namespace agent
+} // namespace agent

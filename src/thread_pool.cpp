@@ -5,7 +5,12 @@
 
 namespace agent {
 
-ThreadPool::ThreadPool(std::size_t thread_count) {
+ThreadPool::ThreadPool(
+    std::size_t thread_count,
+    std::size_t queue_capacity
+)
+    : tasks_(queue_capacity) {
+
     if (thread_count == 0) {
         throw std::invalid_argument(
             "thread_count must be greater than zero"
@@ -22,12 +27,7 @@ ThreadPool::ThreadPool(std::size_t thread_count) {
             );
         }
     } catch (...) {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            stopping_ = true;
-        }
-
-        cv_.notify_all();
+        tasks_.close();
 
         for (auto& worker : workers_) {
             if (worker.joinable()) {
@@ -39,14 +39,22 @@ ThreadPool::ThreadPool(std::size_t thread_count) {
     }
 }
 
-ThreadPool::~ThreadPool() {
+void ThreadPool::shutdown() {
+    // 保证多个调用者不会同时 join 同一批线程
+    std::lock_guard<std::mutex> shutdown_lock(
+        shutdown_mutex_
+    );
+
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        stopping_ = true;
+        std::lock_guard<std::mutex> lock(state_mutex_);
+
+        if (!stopping_) {
+            stopping_ = true;
+            tasks_.close();
+        }
     }
 
-    cv_.notify_all();
-
+    // 等待所有已接纳的任务执行完毕
     for (auto& worker : workers_) {
         if (worker.joinable()) {
             worker.join();
@@ -54,27 +62,20 @@ ThreadPool::~ThreadPool() {
     }
 }
 
+ThreadPool::~ThreadPool() {
+    shutdown();
+}
+
 void ThreadPool::worker_loop() {
     while (true) {
-        std::function<void()> task;
+        auto task = tasks_.pop();
 
-        {
-            std::unique_lock<std::mutex> lock(mutex_);
-
-            cv_.wait(lock, [this] {
-                return stopping_ || !tasks_.empty();
-            });
-
-            if (stopping_ && tasks_.empty()) {
-                return;
-            }
-
-            task = std::move(tasks_.front());
-            tasks_.pop();
+        if (!task.has_value()) {
+            return;
         }
 
-        task();
+        (*task)();
     }
 }
 
-}  // namespace agent
+} // namespace agent
