@@ -2,6 +2,7 @@
 #include "agent/thread_pool.hpp"
 
 #include <stdexcept>
+#include <utility>
 
 namespace agent {
 
@@ -39,8 +40,41 @@ ThreadPool::ThreadPool(
     }
 }
 
+void ThreadPool::enqueue(std::function<void()> task) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+
+    if (stopping_) {
+        throw std::runtime_error(
+            "submit on stopped ThreadPool"
+        );
+    }
+
+    if (!tasks_.try_push(std::move(task))) {
+        throw std::runtime_error(
+            "thread pool task queue is full"
+        );
+    }
+
+    // 只有成功进入队列的任务才计入 submitted
+    submitted_.fetch_add(1, std::memory_order_relaxed);
+}
+
+void ThreadPool::mark_completed() {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+
+    completed_.fetch_add(1, std::memory_order_relaxed);
+}
+
+ThreadPoolStats ThreadPool::stats() const {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+
+    return {
+        submitted_.load(std::memory_order_relaxed),
+        completed_.load(std::memory_order_relaxed)
+    };
+}
+
 void ThreadPool::shutdown() {
-    // 保证多个调用者不会同时 join 同一批线程
     std::lock_guard<std::mutex> shutdown_lock(
         shutdown_mutex_
     );
@@ -54,7 +88,6 @@ void ThreadPool::shutdown() {
         }
     }
 
-    // 等待所有已接纳的任务执行完毕
     for (auto& worker : workers_) {
         if (worker.joinable()) {
             worker.join();
