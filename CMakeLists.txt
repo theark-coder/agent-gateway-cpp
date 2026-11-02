@@ -25,6 +25,23 @@ target_link_libraries(agent_gateway PRIVATE agent_core)
 
 include(CTest)
 find_package(Threads REQUIRED)
+# Day 14: graceful shutdown demo
+if(UNIX)
+    add_executable(
+        agent_shutdown_demo
+        src/shutdown_demo.cpp
+    )
+
+    target_link_libraries(
+        agent_shutdown_demo
+        PRIVATE agent_core Threads::Threads
+    )
+
+    target_compile_options(
+        agent_shutdown_demo
+        PRIVATE -Wall -Wextra -Wpedantic
+    )
+endif()
 target_link_libraries(
     agent_core
     PUBLIC Threads::Threads
@@ -231,4 +248,19 @@ if(BUILD_TESTING)
         NAME thread_pool_day12
         COMMAND agent_thread_pool_day12_tests
     )
+    # Day 14: SIGTERM graceful shutdown integration
+    if(UNIX)
+        add_test(
+            NAME thread_pool_sigterm_shutdown
+            COMMAND bash
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_shutdown_integration.sh"
+                "$<TARGET_FILE:agent_shutdown_demo>"
+                "${CMAKE_CURRENT_BINARY_DIR}/day14_shutdown_test"
+        )
+
+        set_tests_properties(
+            thread_pool_sigterm_shutdown
+            PROPERTIES TIMEOUT 20
+        )
+    endif()
 endif()
