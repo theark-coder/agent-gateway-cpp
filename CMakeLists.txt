@@ -263,4 +263,33 @@ if(BUILD_TESTING)
             PROPERTIES TIMEOUT 20
         )
     endif()
+    # Day 15: task_id diagnostic logging
+    if(UNIX)
+        add_executable(
+            agent_day15_task_logging
+            practice/day15_task_logging.cpp
+        )
+
+        target_link_libraries(
+            agent_day15_task_logging
+            PRIVATE agent_core Threads::Threads
+        )
+
+        target_compile_options(
+            agent_day15_task_logging
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+
+        add_test(
+            NAME task_id_logging
+            COMMAND bash
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_day15_task_logging.sh"
+                "$<TARGET_FILE:agent_day15_task_logging>"
+        )
+
+        set_tests_properties(
+            task_id_logging
+            PROPERTIES TIMEOUT 10
+        )
+    endif()
 endif()
