@@ -292,4 +292,35 @@ if(BUILD_TESTING)
             PROPERTIES TIMEOUT 10
         )
     endif()
+        # Day 16: integrated concurrency scenarios
+    add_executable(
+        agent_day16_integration_tests
+        tests/test_day16_integration.cpp
+    )
+
+    target_link_libraries(
+        agent_day16_integration_tests
+        PRIVATE agent_core Threads::Threads
+    )
+
+    if(MSVC)
+        target_compile_options(
+            agent_day16_integration_tests PRIVATE /W4
+        )
+    else()
+        target_compile_options(
+            agent_day16_integration_tests
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+    endif()
+
+    add_test(
+        NAME thread_pool_day16_integration
+        COMMAND agent_day16_integration_tests
+    )
+
+    set_tests_properties(
+        thread_pool_day16_integration
+        PROPERTIES TIMEOUT 20
+    )
 endif()

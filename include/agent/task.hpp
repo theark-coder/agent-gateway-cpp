@@ -1,5 +1,6 @@
 
 #pragma once
+
 #include <mutex>
 #include <optional>
 #include <string>
@@ -9,7 +10,11 @@ namespace agent {
 
 enum class TaskStatus {
     pending,
-    completed
+    completed,
+    running,
+    failed,
+    cancelled,
+    rejected
 };
 
 struct Task {
@@ -21,6 +26,7 @@ struct Task {
 struct Result {
     bool success;
     std::string message;
+    int task_id = 0;
 };
 
 class TaskService {
@@ -29,11 +35,17 @@ public:
 
     std::optional<Task> find_task(int id) const;
 
+    // 使用 expected 防止任务状态被错误覆盖
+    bool transition_task(
+        int id,
+        TaskStatus expected,
+        TaskStatus next
+    );
+
 private:
     mutable std::mutex mutex_;
     std::vector<Task> tasks_;
     int next_id_ = 1;
-
 };
 
-}  // namespace agent
+} // namespace agent
