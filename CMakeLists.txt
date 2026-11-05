@@ -292,7 +292,7 @@ if(BUILD_TESTING)
             PROPERTIES TIMEOUT 10
         )
     endif()
-        # Day 16: integrated concurrency scenarios
+    # Day 16: integrated concurrency scenarios
     add_executable(
         agent_day16_integration_tests
         tests/test_day16_integration.cpp
@@ -323,4 +323,54 @@ if(BUILD_TESTING)
         thread_pool_day16_integration
         PROPERTIES TIMEOUT 20
     )
+    
+    # Day 17: TCP Echo Server and Client
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        add_executable(
+            agent_tcp_echo_server
+            examples/tcp_echo_server.cpp
+        )
+
+        add_executable(
+            agent_tcp_echo_client
+            examples/tcp_echo_client.cpp
+        )
+
+        target_link_libraries(
+            agent_tcp_echo_server PRIVATE agent_core
+        )
+
+        target_link_libraries(
+            agent_tcp_echo_client PRIVATE agent_core
+        )
+
+        target_compile_options(
+            agent_tcp_echo_server
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+
+        target_compile_options(
+            agent_tcp_echo_client
+            PRIVATE -Wall -Wextra -Wpedantic
+        )
+
+        if(BUILD_TESTING)
+            foreach(scenario IN ITEMS normal empty large)
+                add_test(
+                    NAME tcp_echo_${scenario}
+                    COMMAND bash
+                        "${CMAKE_CURRENT_SOURCE_DIR}/scripts/day17/test_echo.sh"
+                        "$<TARGET_FILE:agent_tcp_echo_server>"
+                        "$<TARGET_FILE:agent_tcp_echo_client>"
+                        "${scenario}"
+                )
+
+                set_tests_properties(
+                    tcp_echo_${scenario}
+                    PROPERTIES TIMEOUT 15
+                )
+            endforeach()
+        endif()
+    endif()
+
 endif()
