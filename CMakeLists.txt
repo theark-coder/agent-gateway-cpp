@@ -376,3 +376,5 @@ if(BUILD_TESTING)
 endif()
 
 include(cmake/day18_epoll.cmake)
+
+include(cmake/day19_frames.cmake)
