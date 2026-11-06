@@ -52,7 +52,12 @@ int main() {
         std::cerr << "FAIL: task 2 is incorrect\n";
         return 1;
     }
+    const auto all_tasks = service.list_tasks();
 
+    if (all_tasks.size() != 2) {
+        std::cerr << "FAIL: task list size is incorrect\n";
+        return 1;
+    }
     // 5. 不存在的任务应该返回空值
     const auto missing = service.find_task(999);
 
@@ -123,7 +128,10 @@ int main() {
         std::cerr << "FAIL: unexpected task found\n";
         return 1;
     }
-
+    if (concurrent_service.list_tasks().size() != task_count) {
+    std::cerr << "FAIL: concurrent task list size is incorrect\n";
+    return 1;
+}
     std::cout << "task tests passed\n";
     std::cout << "concurrent task tests passed\n";
 

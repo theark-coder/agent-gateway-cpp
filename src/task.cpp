@@ -34,7 +34,10 @@ std::optional<Task> TaskService::find_task(int id) const {
 
     return std::nullopt;
 }
-
+std::vector<Task> TaskService::list_tasks() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return tasks_;
+}
 bool TaskService::transition_task(
     int id,
     TaskStatus expected,

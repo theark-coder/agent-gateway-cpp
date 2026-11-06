@@ -34,7 +34,7 @@ public:
     Result create_task(const std::string& title);
 
     std::optional<Task> find_task(int id) const;
-
+    std::vector<Task> list_tasks() const;
     // 使用 expected 防止任务状态被错误覆盖
     bool transition_task(
         int id,

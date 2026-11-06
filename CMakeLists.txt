@@ -22,9 +22,71 @@ endif()
 
 add_executable(agent_gateway src/main.cpp)
 target_link_libraries(agent_gateway PRIVATE agent_core)
+# ==========================================
+# Day 20: HTTP Server
+# ==========================================
 
+add_executable(
+    agent_http_server
+    src/http_main.cpp
+    src/http_server.cpp
+)
+
+target_link_libraries(
+    agent_http_server
+    PRIVATE
+        agent_core
+        httplib::httplib
+        nlohmann_json::nlohmann_json
+)
+
+if(MSVC)
+    target_compile_options(
+        agent_http_server PRIVATE /W4
+    )
+else()
+    target_compile_options(
+        agent_http_server
+        PRIVATE -Wall -Wextra -Wpedantic
+    )
+endif()
 include(CTest)
 find_package(Threads REQUIRED)
+# ==========================================
+# Day 20: HTTP dependencies
+# ==========================================
+
+include(FetchContent)
+
+# cpp-httplib: fixed version
+set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_INSTALL OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    httplib
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG v0.64.0
+    GIT_SHALLOW TRUE
+)
+
+# nlohmann/json: fixed version
+set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+set(JSON_Install OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.12.0
+    GIT_SHALLOW TRUE
+)
+
+FetchContent_MakeAvailable(
+    httplib
+    nlohmann_json
+)
 # Day 14: graceful shutdown demo
 if(UNIX)
     add_executable(
@@ -378,3 +440,36 @@ endif()
 include(cmake/day18_epoll.cmake)
 
 include(cmake/day19_frames.cmake)
+# ==========================================
+# Day 20: HTTP integration tests
+# ==========================================
+
+if(BUILD_TESTING)
+
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+    foreach(scenario IN ITEMS
+        health
+        task_crud
+        invalid_json
+        invalid_title
+        not_found
+    )
+
+        add_test(
+            NAME http_${scenario}
+            COMMAND
+                "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/scripts/day20/test_http.py"
+                "$<TARGET_FILE:agent_http_server>"
+                "${scenario}"
+        )
+
+        set_tests_properties(
+            http_${scenario}
+            PROPERTIES TIMEOUT 15
+        )
+
+    endforeach()
+
+endif()
