@@ -1,5 +1,5 @@
 #pragma once
-
+#include "agent/tool.hpp"
 #include "agent/task.hpp"
 
 #include <httplib.h>
@@ -10,7 +10,10 @@ namespace agent {
 
 class HttpServer final {
 public:
-    explicit HttpServer(TaskService& tasks);
+   explicit HttpServer(
+    TaskService& tasks,
+    ToolRegistry& tools
+);
 
     bool listen(const std::string& host, int port);
 
@@ -19,6 +22,7 @@ public:
 private:
     httplib::Server server_;
     TaskService& tasks_;
+    ToolRegistry& tools_;
 };
 
 } // namespace agent

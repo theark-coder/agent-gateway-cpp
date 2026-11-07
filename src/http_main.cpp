@@ -1,6 +1,7 @@
 #include "agent/http_server.hpp"
 #include "agent/task.hpp"
-
+#include "agent/tool.hpp"
+#include <memory>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -23,7 +24,15 @@ int main(int argc, char* argv[]) {
         }
 
         agent::TaskService tasks;
-        agent::HttpServer server(tasks);
+
+        agent::ToolRegistry tools;
+
+        if (!tools.register_tool(
+                std::make_unique<agent::LookupPolicyTool>())) {
+            throw std::runtime_error("tool registration failed");
+        }
+
+agent::HttpServer server(tasks, tools);
 
         std::cout
             << "READY http://"

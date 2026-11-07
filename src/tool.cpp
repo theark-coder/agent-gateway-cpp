@@ -45,7 +45,11 @@ bool ToolRegistry::register_tool(
     tools_.emplace(tool_name, std::move(tool));
     return true;
 }
-
+bool ToolRegistry::has_tool(
+    const std::string& tool_name
+) const {
+    return tools_.find(tool_name) != tools_.end();
+}
 std::string ToolRegistry::execute(
     const std::string& tool_name,
     const std::string& input

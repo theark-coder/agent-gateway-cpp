@@ -30,7 +30,7 @@ public:
 class ToolRegistry final {
 public:
     bool register_tool(std::unique_ptr<ITool> tool);
-
+    bool has_tool(const std::string& tool_name) const;
     std::string execute(
         const std::string& tool_name,
         const std::string& input

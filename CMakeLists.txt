@@ -451,6 +451,8 @@ if(BUILD_TESTING)
     foreach(scenario IN ITEMS
         health
         task_crud
+        task_get
+        tool_call
         invalid_json
         invalid_title
         not_found

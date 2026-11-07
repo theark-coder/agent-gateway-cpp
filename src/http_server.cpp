@@ -46,8 +46,12 @@ const char* status_name(TaskStatus status) {
 
 } // namespace
 
-HttpServer::HttpServer(TaskService& tasks)
-    : tasks_(tasks) {
+HttpServer::HttpServer(
+    TaskService& tasks,
+    ToolRegistry& tools
+)
+    : tasks_(tasks),
+      tools_(tools) {
 
     // 限制 HTTP 请求正文大小
     server_.set_payload_max_length(64 * 1024);
@@ -99,7 +103,38 @@ HttpServer::HttpServer(TaskService& tasks)
             );
         }
     );
+    server_.Get(
+    R"(/api/v1/tasks/([0-9]+))",
+    [this](const httplib::Request& req,
+           httplib::Response& res) {
 
+        int id = 0;
+
+        try {
+            id = std::stoi(req.matches[1].str());
+        } catch (const std::exception&) {
+            send_json(res, 400, {
+                {"error", "invalid_task_id"}
+            });
+            return;
+        }
+
+        auto task = tasks_.find_task(id);
+
+        if (!task) {
+            send_json(res, 404, {
+                {"error", "task_not_found"}
+            });
+            return;
+        }
+
+        send_json(res, 200, {
+            {"id", task->id},
+            {"title", task->title},
+            {"status", status_name(task->status)}
+        });
+    }
+);
     // =====================================
     // POST /api/v1/tasks
     // =====================================
@@ -166,7 +201,80 @@ HttpServer::HttpServer(TaskService& tasks)
             );
         }
     );
+    // =====================================
+    // POST /api/v1/tools/{tool_name}
+    // =====================================
 
+    server_.Post(
+        R"(/api/v1/tools/([a-zA-Z0-9_-]+))",
+        [this](const httplib::Request& req,
+            httplib::Response& res) {
+
+            // 1. 获取工具名称
+            const std::string tool_name =
+                req.matches[1].str();
+
+            // 2. 解析 JSON
+            const auto body = json::parse(
+                req.body,
+                nullptr,
+                false
+            );
+
+            if (body.is_discarded() || !body.is_object()) {
+                send_json(res, 400, {
+                    {"error", "invalid_json"}
+                });
+                return;
+            }
+
+            // 3. 检查 input
+            auto it = body.find("input");
+
+            if (it == body.end() || !it->is_string()) {
+                send_json(res, 400, {
+                    {"error", "invalid_input"}
+                });
+                return;
+            }
+
+            const std::string input =
+                it->get<std::string>();
+
+            if (input.empty()) {
+                send_json(res, 400, {
+                    {"error", "invalid_input"}
+                });
+                return;
+            }
+
+            // 4. 检查工具是否存在
+            if (!tools_.has_tool(tool_name)) {
+                send_json(res, 404, {
+                    {"error", "unknown_tool"}
+                });
+                return;
+            }
+
+            // 5. 执行工具
+            const std::string output =
+                tools_.execute(tool_name, input);
+
+            // 6. 处理工具执行错误
+            if (output.rfind("error:", 0) == 0) {
+                send_json(res, 422, {
+                    {"error", "tool_execution_failed"}
+                });
+                return;
+            }
+
+            // 7. 返回成功结果
+            send_json(res, 200, {
+                {"tool", tool_name},
+                {"output", output}
+            });
+        }
+    );
     // =====================================
     // 统一错误响应
     // =====================================

@@ -112,6 +112,126 @@ def run_scenario(base, scenario):
         assert len(tasks) == 1
         assert tasks[0]["id"] == 1
 
+    elif scenario == "task_get":
+        # 1. 创建任务
+        status, _, body = request(
+            base,
+            "POST",
+            "/api/v1/tasks",
+            payload={"title": "Build HTTP API"}
+        )
+
+        assert status == 201
+
+        created = parse_json(body)
+        task_id = created["id"]
+
+        # 2. 查询已创建任务
+        status, _, body = request(
+            base,
+            "GET",
+            f"/api/v1/tasks/{task_id}"
+        )
+
+        assert status == 200
+
+        task = parse_json(body)
+
+        assert task["id"] == task_id
+        assert task["title"] == "Build HTTP API"
+        assert task["status"] == "pending"
+
+        # 3. 查询不存在的任务
+        status, _, body = request(
+            base,
+            "GET",
+            "/api/v1/tasks/999999"
+        )
+
+        assert status == 404
+        assert parse_json(body)["error"] == "task_not_found"
+
+        # 4. 查询 ID 为 0 的任务
+        status, _, body = request(
+            base,
+            "GET",
+            "/api/v1/tasks/0"
+        )
+
+        assert status == 404
+        assert parse_json(body)["error"] == "task_not_found"
+    elif scenario == "tool_call":
+
+        # 1. 测试 returns
+        status, _, body = request(
+            base,
+            "POST",
+            "/api/v1/tools/lookup_policy",
+            payload={"input": "returns"}
+        )
+
+        result = parse_json(body)
+
+        assert status == 200
+        assert result["tool"] == "lookup_policy"
+        assert "30 days" in result["output"]
+
+        # 2. 测试 warranty
+        status, _, body = request(
+            base,
+            "POST",
+            "/api/v1/tools/lookup_policy",
+            payload={"input": "warranty"}
+        )
+
+        result = parse_json(body)
+
+        assert status == 200
+        assert "1-year limited warranty" in result["output"]
+
+        # 3. 测试未知工具
+        status, _, body = request(
+            base,
+            "POST",
+            "/api/v1/tools/unknown_tool",
+            payload={"input": "returns"}
+        )
+
+        assert status == 404
+        assert parse_json(body)["error"] == "unknown_tool"
+
+        # 4. 测试缺少 input
+        status, _, body = request(
+            base,
+            "POST",
+            "/api/v1/tools/lookup_policy",
+            payload={}
+        )
+
+        assert status == 400
+        assert parse_json(body)["error"] == "invalid_input"
+
+        # 5. 测试 input 类型错误
+        status, _, body = request(
+            base,
+            "POST",
+            "/api/v1/tools/lookup_policy",
+            payload={"input": 123}
+        )
+
+        assert status == 400
+        assert parse_json(body)["error"] == "invalid_input"
+
+        # 6. 测试未知政策主题
+        status, _, body = request(
+            base,
+            "POST",
+            "/api/v1/tools/lookup_policy",
+            payload={"input": "unknown_topic"}
+        )
+
+        assert status == 422
+        assert parse_json(body)["error"] == "tool_execution_failed"
     elif scenario == "invalid_json":
         status, _, body = request(
             base,
