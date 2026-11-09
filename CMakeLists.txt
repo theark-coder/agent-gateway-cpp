@@ -456,6 +456,9 @@ if(BUILD_TESTING)
         invalid_json
         invalid_title
         not_found
+        async_task
+        async_concurrent
+        task_cancel_deadline
     )
 
         add_test(
@@ -473,5 +476,8 @@ if(BUILD_TESTING)
         )
 
     endforeach()
-
+    set_tests_properties(
+    http_task_cancel_deadline
+    PROPERTIES TIMEOUT 45
+)
 endif()

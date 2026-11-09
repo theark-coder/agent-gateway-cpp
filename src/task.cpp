@@ -55,17 +55,19 @@ bool TaskService::transition_task(
         }
 
         bool allowed = false;
-
         if (expected == TaskStatus::pending) {
             allowed =
                 next == TaskStatus::running ||
                 next == TaskStatus::rejected ||
-                next == TaskStatus::cancelled;
+                next == TaskStatus::cancelled ||
+                next == TaskStatus::timed_out;
+
         } else if (expected == TaskStatus::running) {
             allowed =
                 next == TaskStatus::completed ||
                 next == TaskStatus::failed ||
-                next == TaskStatus::cancelled;
+                next == TaskStatus::cancelled ||
+                next == TaskStatus::timed_out;
         }
 
         if (!allowed) {

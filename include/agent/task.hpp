@@ -14,7 +14,8 @@ enum class TaskStatus {
     running,
     failed,
     cancelled,
-    rejected
+    rejected,
+    timed_out
 };
 
 struct Task {
