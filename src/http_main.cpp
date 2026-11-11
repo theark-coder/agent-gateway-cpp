@@ -2,6 +2,10 @@
 #include "agent/task.hpp"
 #include "agent/tool.hpp"
 #include <memory>
+#include <cstdlib>
+#ifdef AGENT_HAS_MYSQL
+#include "agent/mysql_task_repository.hpp"
+#endif
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -23,7 +27,33 @@ int main(int argc, char* argv[]) {
             throw std::invalid_argument("invalid port");
         }
 
-        agent::TaskService tasks;
+        std::shared_ptr<agent::ITaskRepository> repository;
+#ifdef AGENT_HAS_MYSQL
+        const char* mysql_host = std::getenv("MYSQL_HOST");
+        if (mysql_host && *mysql_host) {
+            auto env = [](const char* name, const char* fallback = "") -> std::string {
+                const char* value = std::getenv(name);
+                return value ? value : fallback;
+            };
+            agent::MySqlConfig config;
+            config.host = mysql_host;
+            config.port = static_cast<unsigned int>(std::stoul(env("MYSQL_PORT", "3306")));
+            config.user = env("MYSQL_USER", "agent_app");
+            config.password = env("MYSQL_PASSWORD");
+            config.database = env("MYSQL_DATABASE", "agent_gateway");
+            config.ssl_ca = env("MYSQL_SSL_CA");
+            config.insecure_skip_verify = env("MYSQL_INSECURE_SKIP_VERIFY") == "1";
+            if (config.password.empty())
+                throw std::runtime_error("MYSQL_PASSWORD must be set when MYSQL_HOST is set");
+            auto mysql_repo = std::make_shared<agent::MySqlTaskRepository>(config);
+            mysql_repo->recover_unfinished();
+            repository = mysql_repo;
+        }
+#else
+        if (std::getenv("MYSQL_HOST"))
+            throw std::runtime_error("MySQL not built: install libmariadb-dev and reconfigure CMake");
+#endif
+        agent::TaskService tasks(repository);
 
         agent::ToolRegistry tools;
         // 创建 4 个工作线程，队列容量为 64

@@ -1,6 +1,8 @@
 #include "agent/http_server.hpp"
 
 #include <cstdint>
+#include <algorithm>
+#include <cctype>
 
 #include <nlohmann/json.hpp>
 #include <chrono>
@@ -250,8 +252,44 @@ server_.Post(
             return;
         }
 
-        // 4. 创建任务
-        const auto result = tasks_.create_task(title);
+        // 4. Dev-only single-actor idempotency. Authentication comes later.
+        std::string idempotency_key;
+        if (req.has_header("Idempotency-Key")) {
+            idempotency_key = req.get_header_value("Idempotency-Key");
+            if (idempotency_key.empty() || idempotency_key.size() > 128 ||
+                std::any_of(idempotency_key.begin(), idempotency_key.end(),
+                    [](unsigned char c) { return std::iscntrl(c) != 0; })) {
+                send_json(res, 400, {{"error", "invalid_idempotency_key"}});
+                return;
+            }
+        }
+        const std::string fingerprint = json({
+            {"title", title}, {"work_ms", work_ms}, {"deadline_ms", deadline_ms}
+        }).dump();
+        Result result;
+        try {
+            result = tasks_.create_task(title, "local-dev", idempotency_key, fingerprint);
+        } catch (const std::exception&) {
+            send_json(res, 503, {{"error", "task_storage_unavailable"}});
+            return;
+        }
+        if (result.conflict) {
+            send_json(res, 409, {{"error", "idempotency_conflict"}});
+            return;
+        }
+        if (result.replayed) {
+            const auto existing = tasks_.find_task(result.task_id);
+            if (!existing) {
+                send_json(res, 503, {{"error", "task_storage_unavailable"}});
+                return;
+            }
+            send_json(res, 200, {
+                {"id", existing->id}, {"title", existing->title},
+                {"status", status_name(existing->status)}, {"replayed", true},
+                {"status_url", "/api/v1/tasks/" + std::to_string(existing->id)}
+            });
+            return;
+        }
 
         if (!result.success) {
             send_json(res, 400, {
