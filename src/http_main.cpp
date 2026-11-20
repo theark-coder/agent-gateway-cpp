@@ -3,6 +3,9 @@
 #include "agent/tool.hpp"
 #include <memory>
 #include <cstdlib>
+#ifdef AGENT_HAS_REDIS
+#include "agent/redis_cache.hpp"
+#endif
 #ifdef AGENT_HAS_MYSQL
 #include "agent/mysql_task_repository.hpp"
 #endif
@@ -53,6 +56,29 @@ int main(int argc, char* argv[]) {
         if (std::getenv("MYSQL_HOST"))
             throw std::runtime_error("MySQL not built: install libmariadb-dev and reconfigure CMake");
 #endif
+        std::shared_ptr<agent::RedisRateLimiter> limiter;
+#ifdef AGENT_HAS_REDIS
+        if (const char* redis_host = std::getenv("REDIS_HOST")) {
+            if (*redis_host) {
+                auto env = [](const char* key, const char* def) -> std::string {
+                    const char* v = std::getenv(key);
+                    return v && *v ? v : def;
+                };
+                agent::RedisConfig redis_cfg;
+                redis_cfg.host = redis_host;
+                redis_cfg.port = std::stoi(env("REDIS_PORT", "6380"));
+                redis_cfg.timeout_ms = std::stoi(env("REDIS_TIMEOUT_MS", "300"));
+                auto redis = std::make_shared<agent::RedisClient>(redis_cfg);
+                if (repository) {
+                    const int ttl = std::stoi(env("REDIS_TASK_TTL", "60"));
+                    repository = std::make_shared<agent::RedisCachedTaskRepository>(repository, redis, ttl);
+                }
+                limiter = std::make_shared<agent::RedisRateLimiter>(redis,
+                    std::stoi(env("REDIS_RATE_LIMIT", "120")),
+                    std::stoi(env("REDIS_RATE_WINDOW", "60")));
+            }
+        }
+#endif
         agent::TaskService tasks(repository);
 
         agent::ToolRegistry tools;
@@ -64,7 +90,7 @@ int main(int argc, char* argv[]) {
         }
         agent::ThreadPool pool(4, 64);
 
-        agent::HttpServer server(tasks, tools, pool);
+        agent::HttpServer server(tasks, tools, pool, limiter);
 
 
         std::cout

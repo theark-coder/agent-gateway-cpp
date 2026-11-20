@@ -1,4 +1,7 @@
 #include "agent/http_server.hpp"
+#ifdef AGENT_HAS_REDIS
+#include "agent/redis_cache.hpp"
+#endif
 
 #include <cstdint>
 #include <algorithm>
@@ -8,6 +11,7 @@
 #include <chrono>
 #include <thread>
 #include <future>
+#include <utility>
 namespace agent {
 
 namespace {
@@ -105,11 +109,13 @@ bool read_ms_field(
 HttpServer::HttpServer(
     TaskService& tasks,
     ToolRegistry& tools,
-    ThreadPool& pool
+    ThreadPool& pool,
+    std::shared_ptr<RedisRateLimiter> limiter
 )
     : tasks_(tasks),
       tools_(tools),
       pool_(pool),
+      rate_limiter_(std::move(limiter)),
       task_controls_(
           std::make_shared<TaskControlRegistry>()
       ) {
@@ -251,6 +257,22 @@ server_.Post(
             });
             return;
         }
+
+#ifdef AGENT_HAS_REDIS
+        // Rate limit task submissions only. Actor is fixed until authentication is added.
+        // Redis errors fail closed (HTTP 503), not unlimited requests.
+        if (rate_limiter_) {
+            try {
+                if (!rate_limiter_->allow("local-dev")) {
+                    send_json(res, 429, {{"error", "rate_limited"}});
+                    return;
+                }
+            } catch (const std::exception&) {
+                send_json(res, 503, {{"error", "rate_limiter_unavailable"}});
+                return;
+            }
+        }
+#endif
 
         // 4. Dev-only single-actor idempotency. Authentication comes later.
         std::string idempotency_key;

@@ -14,12 +14,15 @@
 
 namespace agent {
 
+class RedisRateLimiter;
+
 class HttpServer final {
 public:
     HttpServer(
         TaskService& tasks,
         ToolRegistry& tools,
-        ThreadPool& pool
+        ThreadPool& pool,
+        std::shared_ptr<RedisRateLimiter> limiter = nullptr
     );
 
     bool listen(const std::string& host, int port);
@@ -42,6 +45,7 @@ private:
     TaskService& tasks_;
     ToolRegistry& tools_;
     ThreadPool& pool_;
+    std::shared_ptr<RedisRateLimiter> rate_limiter_;
 
     // 共享管理取消句柄的生命周期
     std::shared_ptr<TaskControlRegistry> task_controls_;

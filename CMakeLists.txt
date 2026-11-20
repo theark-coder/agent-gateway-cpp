@@ -511,3 +511,57 @@ if(MARIADB_FOUND)
 else()
     message(STATUS "MariaDB Connector/C not found; MySQL persistence disabled")
 endif()
+
+# Sprint Day 3: optional Redis caching and rate limiting via hiredis.
+if(PkgConfig_FOUND)
+    pkg_check_modules(HIREDIS QUIET IMPORTED_TARGET hiredis)
+endif()
+if(HIREDIS_FOUND)
+    add_library(agent_redis_cache STATIC src/redis_client.cpp src/redis_cache.cpp)
+    target_include_directories(agent_redis_cache PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_link_libraries(agent_redis_cache PUBLIC agent_core PkgConfig::HIREDIS nlohmann_json::nlohmann_json)
+    target_link_libraries(agent_http_server PRIVATE agent_redis_cache)
+    target_compile_definitions(agent_http_server PRIVATE AGENT_HAS_REDIS=1)
+    if(BUILD_TESTING)
+        add_executable(agent_day3_redis_tests tests/test_day3_redis.cpp)
+        target_link_libraries(agent_day3_redis_tests PRIVATE agent_redis_cache)
+        add_test(NAME day3_redis COMMAND agent_day3_redis_tests)
+        set_tests_properties(day3_redis PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
+        add_test(NAME day3_http_rate_limit
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/scripts/day3/test_http_limit.py"
+                "$<TARGET_FILE:agent_http_server>")
+        set_tests_properties(day3_http_rate_limit PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
+    endif()
+else()
+    message(STATUS "hiredis not found; Redis features disabled")
+endif()
+
+# Sprint Day 4: bounded AgentLoop, session memory, Linux Python JSONL adapter.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_library(agent_day4_agent_loop STATIC
+        src/agent_loop.cpp
+        src/python_model_adapter.cpp)
+    target_include_directories(agent_day4_agent_loop PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_link_libraries(agent_day4_agent_loop PUBLIC
+        agent_core nlohmann_json::nlohmann_json)
+    target_compile_options(agent_day4_agent_loop PRIVATE
+        -Wall -Wextra -Wpedantic)
+
+    add_executable(agent_day4_demo src/day4_demo.cpp)
+    target_link_libraries(agent_day4_demo PRIVATE agent_day4_agent_loop)
+    if(BUILD_TESTING)
+        add_executable(agent_day4_agent_loop_tests tests/test_day4_agent_loop.cpp)
+        target_link_libraries(agent_day4_agent_loop_tests PRIVATE agent_day4_agent_loop)
+        add_test(NAME day4_agent_loop COMMAND agent_day4_agent_loop_tests)
+        set_tests_properties(day4_agent_loop PROPERTIES TIMEOUT 10)
+
+        add_executable(agent_day4_python_adapter_tests tests/test_day4_python_adapter.cpp)
+        target_link_libraries(agent_day4_python_adapter_tests PRIVATE agent_day4_agent_loop)
+        add_test(NAME day4_python_adapter
+            COMMAND agent_day4_python_adapter_tests
+                "${CMAKE_CURRENT_SOURCE_DIR}/scripts/day4/fake_model.py")
+        set_tests_properties(day4_python_adapter PROPERTIES TIMEOUT 15)
+    endif()
+endif()
