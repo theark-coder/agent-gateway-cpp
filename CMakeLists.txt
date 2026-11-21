@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(agent_core STATIC
     src/health.cpp
+    src/api_key_auth.cpp
     src/task.cpp
     src/tool.cpp
     src/model_client.cpp
@@ -563,5 +564,35 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
             COMMAND agent_day4_python_adapter_tests
                 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/day4/fake_model.py")
         set_tests_properties(day4_python_adapter PROPERTIES TIMEOUT 15)
+    endif()
+endif()
+
+# Sprint Day 5: API-key authentication (opt-in via AGENT_API_KEY).
+if(BUILD_TESTING)
+    add_executable(agent_day5_api_key_auth_tests tests/test_day5_api_key_auth.cpp)
+    target_link_libraries(agent_day5_api_key_auth_tests PRIVATE agent_core)
+    add_test(NAME day5_api_key_unit COMMAND agent_day5_api_key_auth_tests)
+    add_test(NAME day5_http_api_key
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/day5/test_http_auth.py"
+            "$<TARGET_FILE:agent_http_server>")
+    set_tests_properties(day5_http_api_key PROPERTIES TIMEOUT 25)
+endif()
+
+# Sprint Day 5 stage 2: isolated fault-injection tests, no live services changed.
+if(BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if(HIREDIS_FOUND)
+        add_test(NAME day5_fault_redis_down
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/scripts/day5/test_faults.py"
+                redis-down "$<TARGET_FILE:agent_http_server>")
+        set_tests_properties(day5_fault_redis_down PROPERTIES TIMEOUT 20)
+    endif()
+    if(MARIADB_FOUND)
+        add_test(NAME day5_fault_mysql_down
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/scripts/day5/test_faults.py"
+                mysql-down "$<TARGET_FILE:agent_http_server>")
+        set_tests_properties(day5_fault_mysql_down PROPERTIES TIMEOUT 20)
     endif()
 endif()

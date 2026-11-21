@@ -1,0 +1,42 @@
+name: Agent Gateway C++ CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test-and-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install C++ test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake git pkg-config python3 libmariadb-dev libhiredis-dev
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel 4
+      - name: Run offline CTest suite
+        run: env -u MYSQL_HOST -u REDIS_HOST -u AGENT_API_KEY ctest --test-dir build --output-on-failure
+      - name: Run Redis integration tests
+        run: |
+          docker run -d --name agent-gateway-redis -p 127.0.0.1:6380:6379 redis:7-alpine
+          for i in $(seq 1 30); do
+            if docker exec agent-gateway-redis redis-cli ping | grep -q PONG; then break; fi
+            sleep 1
+          done
+          AGENT_REDIS_TEST=1 REDIS_HOST=127.0.0.1 REDIS_PORT=6380 \
+            ctest --test-dir build -R '^day3_' --output-on-failure
+      - name: Build container image
+        run: |
+          mkdir -p .docker_deps
+          cp -a build/_deps/httplib-src .docker_deps/
+          cp -a build/_deps/nlohmann_json-src .docker_deps/
+          rm -rf .docker_deps/httplib-src/.git
+          rm -rf .docker_deps/nlohmann_json-src/.git
+          docker build -t agent-gateway-day5:local .
+      - name: Container health and auth smoke test
+        run: python3 scripts/day5/docker_smoke.py --image agent-gateway-day5:local --port 18080

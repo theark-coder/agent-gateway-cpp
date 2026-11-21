@@ -1,4 +1,5 @@
 #include "agent/http_server.hpp"
+#include "agent/api_key_auth.hpp"
 #include "agent/task.hpp"
 #include "agent/tool.hpp"
 #include <memory>
@@ -90,7 +91,8 @@ int main(int argc, char* argv[]) {
         }
         agent::ThreadPool pool(4, 64);
 
-        agent::HttpServer server(tasks, tools, pool, limiter);
+        auto auth = std::make_shared<agent::ApiKeyAuth>(agent::ApiKeyAuth::from_environment());
+        agent::HttpServer server(tasks, tools, pool, limiter, auth);
 
 
         std::cout

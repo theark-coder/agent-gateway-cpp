@@ -110,18 +110,40 @@ HttpServer::HttpServer(
     TaskService& tasks,
     ToolRegistry& tools,
     ThreadPool& pool,
-    std::shared_ptr<RedisRateLimiter> limiter
+    std::shared_ptr<RedisRateLimiter> limiter,
+    std::shared_ptr<ApiKeyAuth> auth
 )
     : tasks_(tasks),
       tools_(tools),
       pool_(pool),
       rate_limiter_(std::move(limiter)),
+      api_key_auth_(std::move(auth)),
       task_controls_(
           std::make_shared<TaskControlRegistry>()
       ) {
 
     // 限制 HTTP 请求正文大小
     server_.set_payload_max_length(64 * 1024);
+
+
+    // Centralized API-key check before route handlers. No secrets are logged.
+    server_.set_pre_routing_handler([this](
+        const httplib::Request& req, httplib::Response& res) {
+        if (!api_key_auth_ || !api_key_auth_->requires_auth(req.path)) {
+            return httplib::Server::HandlerResponse::Unhandled;
+        }
+        std::vector<std::string> values;
+        auto range = req.headers.equal_range("X-API-Key");
+        for (auto it = range.first; it != range.second && values.size() < 2; ++it) {
+            values.push_back(it->second);
+        }
+        if (!api_key_auth_->allows(values)) {
+            send_json(res, 401, {{"error", "unauthorized"}});
+            res.set_header("Cache-Control", "no-store");
+            return httplib::Server::HandlerResponse::Handled;
+        }
+        return httplib::Server::HandlerResponse::Unhandled;
+    });
 
     // =====================================
     // GET /health

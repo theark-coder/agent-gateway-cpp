@@ -1,0 +1,14 @@
+.git
+build
+build-*
+cmake-build-*
+.vscode
+.idea
+__pycache__
+*.pyc
+*.zip
+*.tar.gz
+*.log
+.env
+.env.*
+practice/lifetime.cpp
