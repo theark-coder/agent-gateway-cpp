@@ -430,8 +430,7 @@ if(BUILD_TESTING)
 
                 set_tests_properties(
                     tcp_echo_${scenario}
-                    PROPERTIES TIMEOUT 15
-                )
+                    PROPERTIES  TIMEOUT 15  )
             endforeach()
         endif()
     endif()
@@ -472,9 +471,11 @@ if(BUILD_TESTING)
         )
 
         set_tests_properties(
-            http_${scenario}
-            PROPERTIES TIMEOUT 15
-        )
+        http_${scenario}
+        PROPERTIES
+            TIMEOUT 15
+            ENVIRONMENT "MYSQL_HOST=;REDIS_HOST="
+    )
 
     endforeach()
     set_tests_properties(
